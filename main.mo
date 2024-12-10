@@ -1,6 +1,9 @@
 import List "mo:base/List";
 import Trie "mo:base/Trie";
 import Nat32 "mo:base/Nat32";
+import Option "mo:base/Option";
+import Array "mo:base/Array";
+
 
 actor StarMap {
   public type StarId = Nat32;
@@ -15,7 +18,7 @@ actor StarMap {
 
   public type Star = {
     name: Text;       // Yıldızın adı
-    type: Text;       // Yıldızın türü (ör: "Güneş tipi", "Kırmızı cüce")
+    star_type: Text;       // Yıldızın türü (ör: "Güneş tipi", "Kırmızı cüce")
     planets: List.List<Planet>; // Yıldızın gezegenleri
   };
 
@@ -29,38 +32,55 @@ actor StarMap {
   public func addStar(star: Star): async StarId {
     let starId = nextStarId;
     nextStarId += 1;
-    stars := Trie.replace(stars, starId, Nat32.equal, star).0;
+
+    stars := Trie.replace(
+      stars, 
+      key(starId), 
+      Nat32.equal, 
+      ?star
+      ).0;
+
     return starId;
   };
 
   // Yıldıza gezegen ekle
   public func addPlanetToStar(starId: StarId, planet: Planet): async Bool {
-    let starOption = Trie.find(stars, starId, Nat32.equal);
-    if (Option.isSome(starOption)) {
-      let star = Option.get(starOption);
-      let updatedStar = {
+    let starOption = Trie.find(
+      stars, 
+      key(starId), 
+      Nat32.equal
+      );
+      let exists = Option.isSome(starOption);
+    if (exists) {
+    let star = Option.unwrap(starOption);
+        let updatedStar = {
         name = star.name;
-        type = star.type;
-        planets = List.append(star.planets, List.cons(planet, List.nil()));
+        star_type = star.star_type;
+        planets = List.append(star.planets, List.push(planet, List.nil()));
       };
-      stars := Trie.replace(stars, starId, Nat32.equal, updatedStar).0;
+      stars := Trie.replace(
+        stars, 
+        key(starId), 
+        Nat32.equal, 
+        ?updatedStar
+        ).0;
       return true;
     };
     return false;
   };
 
-  // Yıldız ve gezegenleri listele
-  public query func listStars(): async List.List<(StarId, Star)> {
-    return Trie.entries(stars);
-  };
 
   // Yıldızı sil
   public func deleteStar(starId: StarId): async Bool {
-    let exists = Option.isSome(Trie.find(stars, starId, Nat32.equal));
+    let exists = Option.isSome(Trie.find(stars, key(starId), Nat32.equal));
     if (exists) {
-      stars := Trie.replace(stars, starId, Nat32.equal, null).0;
+      stars := Trie.replace(stars, key(starId), Nat32.equal, null).0;
     };
     return exists;
   };
-};
 
+    private func key(x: StarId): Trie.Key<StarId> {
+    { hash = x; key = x };
+  };
+
+};
